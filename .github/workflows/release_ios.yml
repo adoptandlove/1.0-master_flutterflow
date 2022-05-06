@@ -1,0 +1,47 @@
+name: Release iOS version of GetPet to AppStore
+on:
+  push:
+    tags:
+      - v*
+#    branches-ignore:
+#      - '**'
+
+jobs:
+  release_ios:
+    name: Release iOS to AppStore
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@master
+
+      - uses: fregante/setup-git-token@v1
+        name: Setup Git Token for Match
+        with:
+          token: ${{ secrets.GIT_APPLICATION_SPECIFIC_TOKEN }}
+
+      - uses: maierj/fastlane-action@v1.4.0
+        name: Download and install iOS certificates
+        with:
+          lane: 'ios certificates'
+          subdirectory: 'ios'
+        env:
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - run: flutter build ios --release --no-codesign
+
+      - run: security find-identity -v -p codesigning
+
+      - name: Publish to AppStore using Fastlane
+        uses: maierj/fastlane-action@v1.4.0
+        with:
+          lane: 'ios release --verbose'
+          subdirectory: 'ios'
+        env:
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
